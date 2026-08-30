@@ -1,0 +1,215 @@
+# =============================================================
+# Apollo 2.2.0 —— Kubernetes 部署清单
+#
+# 命名空间：apollo
+#
+# 使用：
+#   1) 先修改并 apply ConfigMap（deploy/k8s/configmap.yaml）以切换数据库
+#   2) 再 apply 本文件：
+#        kubectl create namespace apollo
+#        kubectl apply -f configmap.yaml
+#        kubectl apply -f apollo-2.2.0.yaml
+#
+# 镜像需已构建并推送到集群可拉取的位置（镜像内已内置多数据库驱动）。
+# 对外暴露方式可按需改为 NodePort / LoadBalancer / Ingress（示例为 NodePort）。
+# =============================================================
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apollo-configservice
+  namespace: apollo
+  labels:
+    app: apollo-configservice
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: apollo-configservice
+  template:
+    metadata:
+      labels:
+        app: apollo-configservice
+    spec:
+      containers:
+        - name: configservice
+          image: apollo-configservice:2.2.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: apollo-config
+          env:
+            - name: APOLLO_RUN_MODE
+              value: "Docker"
+            # SPRING_PROFILES_ACTIVE = github,<数据库Profile>，例如 github,dm
+            - name: SPRING_PROFILES_ACTIVE
+              value: "github,$(APOLLO_DB_PROFILE)"
+            - name: SPRING_DATASOURCE_URL
+              value: "$(CONFIG_DB_URL)"
+            - name: SPRING_DATASOURCE_USERNAME
+              value: "$(CONFIG_DB_USERNAME)"
+            - name: SPRING_DATASOURCE_PASSWORD
+              value: "$(CONFIG_DB_PASSWORD)"
+            - name: EUREKA_INSTANCE_HOSTNAME
+              value: "$(CONFIG_SERVICE_HOST)"
+            - name: EUREKA_INSTANCE_PREFERIPADDRESS
+              value: "false"
+            - name: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+              value: "http://$(ADMIN_SERVICE_HOST):8090/eureka/"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: apollo-configservice
+  namespace: apollo
+  labels:
+    app: apollo-configservice
+spec:
+  type: NodePort
+  selector:
+    app: apollo-configservice
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      nodePort: 30180
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apollo-adminservice
+  namespace: apollo
+  labels:
+    app: apollo-adminservice
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: apollo-adminservice
+  template:
+    metadata:
+      labels:
+        app: apollo-adminservice
+    spec:
+      containers:
+        - name: adminservice
+          image: apollo-adminservice:2.2.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8090
+          envFrom:
+            - configMapRef:
+                name: apollo-config
+          env:
+            - name: APOLLO_RUN_MODE
+              value: "Docker"
+            - name: SPRING_PROFILES_ACTIVE
+              value: "github,$(APOLLO_DB_PROFILE)"
+            - name: SPRING_DATASOURCE_URL
+              value: "$(CONFIG_DB_URL)"
+            - name: SPRING_DATASOURCE_USERNAME
+              value: "$(CONFIG_DB_USERNAME)"
+            - name: SPRING_DATASOURCE_PASSWORD
+              value: "$(CONFIG_DB_PASSWORD)"
+            - name: EUREKA_INSTANCE_HOSTNAME
+              value: "$(ADMIN_SERVICE_HOST)"
+            - name: EUREKA_INSTANCE_PREFERIPADDRESS
+              value: "false"
+            - name: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+              value: "http://$(ADMIN_SERVICE_HOST):8090/eureka/"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8090
+            initialDelaySeconds: 60
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: apollo-adminservice
+  namespace: apollo
+  labels:
+    app: apollo-adminservice
+spec:
+  type: ClusterIP
+  selector:
+    app: apollo-adminservice
+  ports:
+    - name: http
+      port: 8090
+      targetPort: 8090
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apollo-portal
+  namespace: apollo
+  labels:
+    app: apollo-portal
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: apollo-portal
+  template:
+    metadata:
+      labels:
+        app: apollo-portal
+    spec:
+      containers:
+        - name: portal
+          image: apollo-portal:2.2.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8070
+          envFrom:
+            - configMapRef:
+                name: apollo-config
+          env:
+            - name: APOLLO_RUN_MODE
+              value: "Docker"
+            # portal 必须带 auth 认证 Profile，否则为默认免认证用户 apollo
+            # SPRING_PROFILES_ACTIVE = github,<数据库Profile>,auth
+            - name: SPRING_PROFILES_ACTIVE
+              value: "github,$(APOLLO_DB_PROFILE),auth"
+            - name: SPRING_DATASOURCE_URL
+              value: "$(PORTAL_DB_URL)"
+            - name: SPRING_DATASOURCE_USERNAME
+              value: "$(PORTAL_DB_USERNAME)"
+            - name: SPRING_DATASOURCE_PASSWORD
+              value: "$(PORTAL_DB_PASSWORD)"
+            # portal 通过 meta 访问 configservice
+            - name: JAVA_OPTS
+              value: "-Ddev_meta=$(DEV_META)"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8070
+            initialDelaySeconds: 60
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: apollo-portal
+  namespace: apollo
+  labels:
+    app: apollo-portal
+spec:
+  type: NodePort
+  selector:
+    app: apollo-portal
+  ports:
+    - name: http
+      port: 8070
+      targetPort: 8070
+      nodePort: 30170

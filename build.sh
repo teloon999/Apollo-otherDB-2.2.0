@@ -1,0 +1,74 @@
+#./scripts/build.sh
+#rm -rf ./docker_build
+mkdir -p ./docker_build/apollo-adminservice/apollo-adminservice
+cp ./apollo-adminservice/target/apollo-adminservice-2.2.0-github.zip ./docker_build/apollo-adminservice/apollo-adminservice/
+cp ./apollo-adminservice/Dockerfile ./docker_build/apollo-adminservice/
+cd docker_build/apollo-adminservice/apollo-adminservice/
+unzip ./apollo-adminservice-2.2.0-github.zip
+rm -f ./apollo-adminservice-2.2.0-github.zip
+cd ..
+#docker build -t apollo-adminservice-postgres:2.2.0-arm --platform linux/arm64 .
+docker build -t apollo-adminservice-postgres:2.2.0 .
+
+cd ..
+cd ..
+
+mkdir -p ./docker_build/apollo-configservice/apollo-configservice
+cp ./apollo-configservice/target/apollo-configservice-2.2.0-github.zip ./docker_build/apollo-configservice/apollo-configservice/
+cp ./apollo-configservice/Dockerfile ./docker_build/apollo-configservice/
+cd docker_build/apollo-configservice/apollo-configservice/
+unzip ./apollo-configservice-2.2.0-github.zip
+rm -f ./apollo-configservice-2.2.0-github.zip
+cd ..
+docker build -t apollo-configservice-postgres:2.2.0 .
+#docker build -t apollo-configservice-postgres:2.2.0-arm --platform linux/arm64 .
+
+
+cd ..
+cd ..
+
+
+mkdir -p ./docker_build/apollo-portal/apollo-portal
+cp ./apollo-portal/target/apollo-portal-2.2.0-github.zip ./docker_build/apollo-portal/apollo-portal/
+cp ./apollo-portal/Dockerfile ./docker_build/apollo-portal/
+
+cd docker_build/apollo-portal/apollo-portal/
+unzip ./apollo-portal-2.2.0-github.zip
+rm -f ./apollo-portal-2.2.0-github.zip
+cd ..
+docker build -t apollo-portal-postgres:2.2.0 .
+#docker build -t apollo-portal-postgres:2.2.0-arm --platform linux/arm64 .
+
+cd ..
+cd ..
+
+#rm -rf ./image-tar
+#mkdir image-tar
+#cd image-tar
+#docker save -o ./apollo-portal-postgres.tar apollo-portal-postgres:2.2.0
+#docker save -o ./ apollo-configservice-postgres.tar apollo-configservice-postgres:2.2.0
+#docker save -o ./ apollo-adminservice-postgres apollo-adminservice-postgres:2.2.0
+
+
+#docker run -d -p 8080:8080 \
+#    -e SPRING_DATASOURCE_URL="jdbc:kingbase8://192.168.1.241:30021/apolloconfigdb" \
+#    -e SPRING_DATASOURCE_USERNAME=kingbase \
+#    -e SPRING_DATASOURCE_PASSWORD=kingbase \
+#    -v /tmp/logs:/opt/logs \
+#    --name apollo-configservice apollo-configservice-kingbase8-pg:2.2.0
+#
+#docker run -d -p 8090:8090 \
+#    -e SPRING_DATASOURCE_URL="jdbc:kingbase8://192.168.11.241:30021/apolloconfigdb" \
+#    -e SPRING_DATASOURCE_USERNAME=kingbase \
+#    -e SPRING_DATASOURCE_PASSWORD=kingbase \
+#    -v /tmp/logs:/opt/logs \
+#    --name apollo-adminservice apollo-adminservice-kingbase8-pg:2.2.0
+#
+#docker run -d -p 8070:8070 \
+#    -e SPRING_DATASOURCE_URL="jdbc:kingbase8://192.168.11.241:30021/apolloportaldb" \
+#    -e SPRING_DATASOURCE_USERNAME=kingbase \
+#    -e SPRING_DATASOURCE_PASSWORD=kingbase \
+#    -e APOLLO_PORTAL_ENVS=dev \
+#    -e DEV_META=http://192.168.11.241:8080 \
+#    -v /tmp/logs:/opt/logs \
+#    --name apollo-portal apollo-portal-kingbase8-pg:2.2.0

@@ -1,0 +1,70 @@
+# =============================================================
+# Apollo 三服务 + 多数据库切换示例（docker compose）
+#
+# 前提：已构建本地镜像（建议按 README 用 scripts/build.sh 打包，
+#       再按各模块 Dockerfile 构建 apollo-configservice / apollo-adminservice /
+#       apollo-portal 镜像）。数据库为外部已有实例（达梦/PG/金仓/MySQL）。
+#
+# 使用：
+#   1. cp .env.example .env ，并按需修改数据库连接
+#   2. docker compose -p apollo --env-file .env -f docker-compose.example.yaml up -d
+#
+# 切换数据库：仅修改 .env 的 APOLLO_DB_PROFILE 与 *_DB_URL，再重启。
+# =============================================================
+version: "3.8"
+
+services:
+  configservice:
+    image: apollo-configservice:2.2.0
+    container_name: apollo-configservice
+    environment:
+      APOLLO_RUN_MODE: Docker
+      SPRING_PROFILES_ACTIVE: "github,${APOLLO_DB_PROFILE}"   # 例如 github,dm
+      SPRING_DATASOURCE_URL: "${CONFIG_DB_URL}"
+      SPRING_DATASOURCE_USERNAME: "${CONFIG_DB_USERNAME}"
+      SPRING_DATASOURCE_PASSWORD: "${CONFIG_DB_PASSWORD}"
+      EUREKA_INSTANCE_HOSTNAME: "${CONFIG_SERVICE_HOST}"
+      EUREKA_INSTANCE_PREFERIPADDRESS: "false"
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: "http://${ADMIN_SERVICE_HOST}:8090/eureka/"
+    ports:
+      - "8080:8080"
+    networks: [apollo]
+
+  adminservice:
+    image: apollo-adminservice:2.2.0
+    container_name: apollo-adminservice
+    environment:
+      APOLLO_RUN_MODE: Docker
+      SPRING_PROFILES_ACTIVE: "github,${APOLLO_DB_PROFILE}"
+      SPRING_DATASOURCE_URL: "${CONFIG_DB_URL}"
+      SPRING_DATASOURCE_USERNAME: "${CONFIG_DB_USERNAME}"
+      SPRING_DATASOURCE_PASSWORD: "${CONFIG_DB_PASSWORD}"
+      EUREKA_INSTANCE_HOSTNAME: "${ADMIN_SERVICE_HOST}"
+      EUREKA_INSTANCE_PREFERIPADDRESS: "false"
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: "http://${ADMIN_SERVICE_HOST}:8090/eureka/"
+    ports:
+      - "8090:8090"
+    networks: [apollo]
+
+  portal:
+    image: apollo-portal:2.2.0
+    container_name: apollo-portal
+    depends_on:
+      - configservice
+      - adminservice
+    environment:
+      APOLLO_RUN_MODE: Docker
+      # portal 必须激活 auth 认证 Profile，否则为“默认免认证”(固定用户 apollo、无法退出)
+      SPRING_PROFILES_ACTIVE: "github,${APOLLO_DB_PROFILE},auth"
+      SPRING_DATASOURCE_URL: "${PORTAL_DB_URL}"
+      SPRING_DATASOURCE_USERNAME: "${PORTAL_DB_USERNAME}"
+      SPRING_DATASOURCE_PASSWORD: "${PORTAL_DB_PASSWORD}"
+      # portal 通过 meta 访问 configservice（按环境调整，也常用 apollo-env.properties）
+      JAVA_OPTS: "-Ddev_meta=${DEV_META}"
+    ports:
+      - "8070:8070"
+    networks: [apollo]
+
+networks:
+  apollo:
+    driver: bridge

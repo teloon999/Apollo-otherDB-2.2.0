@@ -1,0 +1,50 @@
+# =============================================================
+# Apollo 多数据库部署 —— ConfigMap
+#
+# 由 deploy/docker/.env.example 改写而来。
+# 命名空间：apollo
+#
+# 切换数据库：只需修改本文件中的 APOLLO_DB_PROFILE 与 *_DB_URL 等配置，
+# 然后重新 apply 即可（Pod 会随之按新配置重启）。
+#   APOLLO_DB_PROFILE: postgre | dm | kingbase | mysql | h2
+#
+# 生产环境建议将各 *_PASSWORD 移到 Secret，并通过 secretKeyRef 引用，
+# 避免明文暴露在 ConfigMap / 版本库中。
+# =============================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: apollo-config
+  namespace: apollo
+data:
+  # 数据库 Profile：postgre | dm | kingbase | mysql | h2
+  APOLLO_DB_PROFILE: "postgre"
+
+  # ---- ApolloConfigDB 连接（configservice / adminservice）----
+  CONFIG_DB_URL: "jdbc:postgresql://<pg-host>:5432/apolloconfigdb"
+  CONFIG_DB_USERNAME: "postgres"
+  CONFIG_DB_PASSWORD: "change-me"
+
+  # ---- ApolloPortalDB 连接（portal）----
+  PORTAL_DB_URL: "jdbc:postgresql://<pg-host>:5432/apolloportaldb"
+  PORTAL_DB_USERNAME: "postgres"
+  PORTAL_DB_PASSWORD: "change-me"
+
+  # ---- 服务注册 / meta 地址（这里使用 k8s 内 Service 域名）----
+  # configservice/adminservice 通过 eureka 注册；portal 通过 meta 访问 configservice
+  CONFIG_SERVICE_HOST: "apollo-configservice"
+  ADMIN_SERVICE_HOST: "apollo-adminservice"
+  DEV_META: "http://apollo-configservice:8080"
+
+  # ----------------------------------------------------------------------
+  # 切到达梦时示例（镜像需已内置 DmJdbcDriver8.jar；宿主机构建时执行过 scripts/install-dm-driver.sh）：
+  #   APOLLO_DB_PROFILE: dm
+  #   CONFIG_DB_URL: jdbc:dm://<dm-host>:5236?SCHEMA=APOLLOCONFIGDB
+  #   CONFIG_DB_USERNAME: SYSDBA
+  #   PORTAL_DB_URL: jdbc:dm://<dm-host>:5236?SCHEMA=APOLLOPORTALDB
+  # ----------------------------------------------------------------------
+  # 切到人大金仓（PG 模式）示例：
+  #   APOLLO_DB_PROFILE: kingbase
+  #   CONFIG_DB_URL: jdbc:postgresql://<kingbase-host>:54321/apolloconfigdb
+  #   PORTAL_DB_URL: jdbc:postgresql://<kingbase-host>:54321/apolloportaldb
+  # ----------------------------------------------------------------------
