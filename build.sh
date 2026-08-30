@@ -1,5 +1,5 @@
-#./scripts/build.sh
-#rm -rf ./docker_build
+./scripts/build.sh
+rm -rf ./docker_build
 mkdir -p ./docker_build/apollo-adminservice/apollo-adminservice
 cp ./apollo-adminservice/target/apollo-adminservice-2.2.0-github.zip ./docker_build/apollo-adminservice/apollo-adminservice/
 cp ./apollo-adminservice/Dockerfile ./docker_build/apollo-adminservice/
